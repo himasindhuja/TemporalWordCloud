@@ -2,6 +2,7 @@ package org.iiit.ire;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -10,6 +11,28 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.CharUtils;
 import org.apache.commons.lang.StringUtils;
 
+
+/**
+ * Breaks a given input text into tokens
+ * <p>
+ * This class is not thread safe, so don't use it without instantiating an object
+ * <p>
+ * If remove stop words specified, tokens that are stopwords in english are
+ * removed
+ * <p>
+ * If strip suffixes specified, suffixes such as 's,'ve etc.. in tokens are
+ * removed
+ * <p>
+ * Optional things include special tokens (hashtags, urls and attags)
+ * <p>
+ * Also, you can apply elongation normalization, (awesomeeeee maps to awesomee) 
+ * <p>
+ * By default, all of them are not applied
+ * <p>
+ * THIS CLASS IS NOT THREAD SAFE
+ * @author kiran
+ * 
+ */
 
 public class Tokenizer {
 	private final Pattern SUFFIX_PATTERN = Pattern
@@ -69,7 +92,7 @@ public class Tokenizer {
 		this.removeURLs = removeURLs;
 		this.elongationNorm = elongationNorm;
 	}
-	
+
 	/**
 	 * Creates Tokenizer instance, if removeStopwords is set, stopwords are
 	 * removed. if removeSuffixes is set, suffixes are pruned from tokens, options to include hash and at tags,
@@ -94,17 +117,17 @@ public class Tokenizer {
 		this.elongationNorm = elongationNorm;
 		this.removeTokenDelimChars=removeTokenDelimChars;
 	}
-	
+
 	/**
 	 * Returns an array of tokens of the input text.
 	 * 
 	 * @param text the input text
 	 * @return the array of tokens
 	 */
-	public String[] tokenize(String text) {
+	public String[] tokenize(String text, HashMap<String, String> stemMap) {
 		List<String> tokens = new ArrayList<String>();
 		String[] tokensSplits = text.split("(\\s|\n|\r|\t)");
-		
+
 		for(String token : tokensSplits) {
 			if(StringUtils.isBlank(token))
 				continue;
@@ -120,7 +143,7 @@ public class Tokenizer {
 			if(token.startsWith("#") && token.length() > 2) {
 				token = removeStartEndJunkChars(token);
 				token = removeSuffixes(token);
-				
+
 				/*List<String> segments = tokenizeHashTag(token);
 				if(segments != null && !segments.isEmpty()) {
 					StringBuffer segBuffer = new StringBuffer();
@@ -128,11 +151,11 @@ public class Tokenizer {
 						segBuffer.append(" ");
 						segBuffer.append(segment);
 					}
-					
+
 					if(StringUtils.isNotBlank(segBuffer.toString().trim()))
 						token = segBuffer.toString().trim();
 				}*/ 
-				
+
 				this.hashTags.add(token);
 				if(this.includeHashTags)
 					tokens.add(token);
@@ -140,7 +163,7 @@ public class Tokenizer {
 				token = removeStartEndJunkChars(token);
 				token = removeSuffixes(token);
 				this.atTags.add(token);
-				
+
 				if(this.includeAtTags)
 					tokens.add(token);
 			} else {
@@ -151,16 +174,31 @@ public class Tokenizer {
 				if(this.removeTokenDelimChars) {
 					token = removeStartEndJunkChars(token);
 				}
-				
+
 				if(this.removeSuffixes)
 					token = removeSuffixes(token);
-				
+
 				if(this.removeStopwords) {
 					if(StopWordsLoader.getLoader().
 							isStopWord(token))
 						continue;
 				}
+				
+				Stemmer stemmer = new Stemmer();
+				int j =0;
+				for(int i = 0; i<token.length();i++){
+					if(Character.isLetter(token.charAt(i))){
+						stemmer.add(token.charAt(i));
+						j++;
+					}
+				}
 
+				if(token.length() == j){
+					stemmer.stem();
+					stemMap.put(token , stemmer.toString());
+					token = stemmer.toString();
+					System.out.println("stem token "+ token);
+				}
 				tokens.add(token);
 			}
 		}
@@ -183,58 +221,58 @@ public class Tokenizer {
 	public List<String> getHashTags() {
 		return this.hashTags;
 	}
-	
+
 	/**
 	 * This method breaks hash tag using some patterns of capital words etc...
 	 * <br> Returns null if no segment found
 	 * @param hashTag
 	 * @return
 	 */
-    public List<String> tokenizeHashTag(String hashTag) {
-        String tag = hashTag;
-        
-        if(tag.startsWith("#") && tag.length() > 2) {
-            tag = tag.substring(1);
-        }
-        
-        if(StringUtils.isBlank(tag))
-        	return null;
+	public List<String> tokenizeHashTag(String hashTag) {
+		String tag = hashTag;
 
-        List<String> toReturn = new ArrayList<String>();
-        boolean continuousAdd = false;
-        int capitalcount = 0;
-        
-        StringBuffer segmentBuffer = new StringBuffer();
-        for(int i = 0; i < tag.length(); i++) {
-        	char c = tag.charAt(i);
-        	if(CharUtils.isAsciiAlphaLower(c)) {
-        		continuousAdd = false;
-        		segmentBuffer.append(c);
-        	} else if(CharUtils.isAsciiAlphaUpper(c) || CharUtils.isAsciiAlphanumeric(c)) {
-        		capitalcount++;
-        		if(segmentBuffer.toString().length() > 0 && !continuousAdd) {
-        			toReturn.add(segmentBuffer.toString());
-        			segmentBuffer = new StringBuffer();
-        		}
-        		segmentBuffer.append(c);
-        		continuousAdd = true;
-        	}
-        }
-        
-        if(capitalcount <= 1)
-        	return null;
-        
-        /* Final left out chars */
-        if(segmentBuffer.toString().length() > 0) {
-        	toReturn.add(segmentBuffer.toString());
-        }
-        
-        if(toReturn.size() > 1)
-        	return toReturn;
-        
-        return null;
-    }
-	
+		if(tag.startsWith("#") && tag.length() > 2) {
+			tag = tag.substring(1);
+		}
+
+		if(StringUtils.isBlank(tag))
+			return null;
+
+		List<String> toReturn = new ArrayList<String>();
+		boolean continuousAdd = false;
+		int capitalcount = 0;
+
+		StringBuffer segmentBuffer = new StringBuffer();
+		for(int i = 0; i < tag.length(); i++) {
+			char c = tag.charAt(i);
+			if(CharUtils.isAsciiAlphaLower(c)) {
+				continuousAdd = false;
+				segmentBuffer.append(c);
+			} else if(CharUtils.isAsciiAlphaUpper(c) || CharUtils.isAsciiAlphanumeric(c)) {
+				capitalcount++;
+				if(segmentBuffer.toString().length() > 0 && !continuousAdd) {
+					toReturn.add(segmentBuffer.toString());
+					segmentBuffer = new StringBuffer();
+				}
+				segmentBuffer.append(c);
+				continuousAdd = true;
+			}
+		}
+
+		if(capitalcount <= 1)
+			return null;
+
+		/* Final left out chars */
+		if(segmentBuffer.toString().length() > 0) {
+			toReturn.add(segmentBuffer.toString());
+		}
+
+		if(toReturn.size() > 1)
+			return toReturn;
+
+		return null;
+	}
+
 	/**
 	 * Returns the attags in the given input text
 	 * @return list of attags
@@ -252,13 +290,13 @@ public class Tokenizer {
 		while(StringUtils.endsWithAny(token, TOKEN_DELIM_CHARS)) {
 			token = token.substring(0, token.length() - 1);
 		}
-		
+
 		while(StringUtils.startsWithAny(token, TOKEN_DELIM_CHARS) && token.length() > 1) {
 			int beginIndex = StringUtils.indexOfAny(token, TOKEN_DELIM_CHARS) + 1;
 			if(beginIndex < token.length())
 				token = token.substring(beginIndex);
 		}
-		
+
 		return token;
 	}
 
@@ -308,17 +346,17 @@ public class Tokenizer {
 	 * @param len
 	 * @return
 	 */
-	public String[] getNgramsTillLength(String text, int len) {
+	public String[] getNgramsTillLength(String text, int len, HashMap<String, String> stemMap) {
 		List<String> ngrams = new ArrayList<String>();
-		
-		String[] tokens = tokenize(text);
+
+		String[] tokens = tokenize(text, stemMap);
 		for(int i = 1; i <= len; i++) {
 			ngrams.addAll(Arrays.asList(getNGrams(tokens, i)));
 		}
-		
+
 		return ngrams.toArray(new String[0]);
 	}
-	
+
 	/**
 	 * Returns ngram tokens of given length
 	 * 
@@ -326,8 +364,8 @@ public class Tokenizer {
 	 * @param len ngram length required
 	 * @return the array of ngram tokens
 	 */
-	public String[] getNGrams(String text, int len) {
-		String[] tokens = tokenize(text);
+	public String[] getNGrams(String text, int len, HashMap<String, String> stemMap) {
+		String[] tokens = tokenize(text, stemMap);
 		return getNGrams(tokens, len);
 	}
 
@@ -360,7 +398,7 @@ public class Tokenizer {
 		}
 		return ngrams.toArray(new String[0]);
 	}
-	
+
 	private String concat(char[] chars, int start, int end) {
 		StringBuilder sb = new StringBuilder();
 		for (int i = start; i < end; i++)
@@ -371,7 +409,7 @@ public class Tokenizer {
 	private String concat(String[] tokens, int start, int end) {
 		return concat(tokens, start, end, " ");
 	}
-	
+
 	private String concat(String[] tokens, int start, int end, String delim) {
 		StringBuilder sb = new StringBuilder();
 		for (int i = start; i < end; i++) {

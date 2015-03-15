@@ -1,7 +1,6 @@
 package org.iiit.ire;
 
 import java.io.FileInputStream;
-import java.util.HashMap;
 
 import opennlp.tools.postag.POSModel;
 import opennlp.tools.postag.POSTaggerME;
@@ -23,26 +22,9 @@ public final class POSTagger extends Stemmer{
 	 * @param tokens the input array of words
 	 * @return the array of POS tags
 	 */
-	public synchronized String[] tag(String[] tokens, HashMap<String, String> stemMap) { 
+	public synchronized String[] tag(String[] tokens) { 
 		if(tokens == null || tokens.length == 0)
 			return new String[0];
-		
-		Stemmer stemmer = new Stemmer();
-		for(String token : tokens){
-			int j =0;
-			for(int i = 0; i<token.length();i++){
-				if(Character.isLetter(token.charAt(i))){
-						stemmer.add(token.charAt(i));
-						j++;
-				}
-			}
-			
-			if(token.length() == j){
-				stemmer.stem();
-				stemMap.put(token , stemmer.toString());				
-				System.out.println("stem token "+ stemmer.toString());
-			}
-		}
 		
 		String[] taggedTokens = this.postagger.tag(tokens);
 		return taggedTokens;
