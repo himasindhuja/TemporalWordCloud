@@ -197,7 +197,7 @@ public class Tokenizer {
 					stemmer.stem();
 					stemMap.put(token , stemmer.toString());
 					token = stemmer.toString();
-					System.out.println("stem token "+ token);
+//					System.out.println("stem token "+ token);
 				}
 				tokens.add(token);
 			}
