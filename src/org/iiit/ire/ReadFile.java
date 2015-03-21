@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,12 +19,12 @@ import org.apache.commons.lang.time.DateUtils;
 
 
 public class ReadFile {
-	public static HashMap<Long, List<String>> tweetMap = new HashMap<Long, List<String>>();
+	public static HashMap<Integer, List<String>> tweetMap = new HashMap<Integer, List<String>>();
 	public static HashMap<String, String> stemMap = new HashMap<String, String>();
 	public static String[] patterns = new String[]{"hh:mm aa - dd MMM, yyyy"};
 
 	//{time = {token = {tag = {freq, lda score}}}}
-	public static HashMap<Long, HashMap<String, HashMap<String,List<Integer>>>> freqMap = new HashMap<Long, HashMap<String,HashMap<String,List<Integer>>>>();
+	public static HashMap<Integer, HashMap<String, HashMap<String,List<Integer>>>> freqMap = new HashMap<Integer, HashMap<String,HashMap<String,List<Integer>>>>();
 	public static final Charset charset = Charset.forName("UTF-8");
 	HashMap<String, String>  hindiToEnglishMap = new HashMap<String, String>();
 	//3:37 P.M - 6 Nov, 2012
@@ -74,10 +75,15 @@ public class ReadFile {
 		} catch (Exception e) {
 			return;
 		}
-
+		
+		final Calendar dateCal = Calendar.getInstance();
+		dateCal.setTimeInMillis(date.getTime());
+		
+		int hour = dateCal.get(Calendar.HOUR);	
+		
 		List<String> tweets = new ArrayList<String>();
 		try {
-			tweets = tweetMap.get(date.getTime());
+			tweets = tweetMap.get(hour);
 		} catch (Exception e) {
 			tweets = new ArrayList<String>();
 		}
@@ -88,16 +94,18 @@ public class ReadFile {
 			tweets = new ArrayList<String>();
 			tweets.add(splits[8]);
 		}
-
-		tweetMap.put(date.getTime(), tweets);
+		  
+//		System.out.println("hour "+ hour);
+		
+		tweetMap.put(hour, tweets);
 	}
 
 	public static void parseData(){
 
-		for(Map.Entry<Long, List<String>> entries : tweetMap.entrySet()){
-			freqMap = new HashMap<Long, HashMap<String,HashMap<String,List<Integer>>>>();
+		for(Map.Entry<Integer, List<String>> entries : tweetMap.entrySet()){
+			freqMap = new HashMap<Integer, HashMap<String,HashMap<String,List<Integer>>>>();
 
-			long time = entries.getKey();
+			int time = entries.getKey();
 			System.out.println("time : "+ time +"\t size :" + entries.getValue().size());
 			for(String tweet : entries.getValue()){
 				Tokenizer tokenizer = new Tokenizer(true, false, true, true, true, false, true);
@@ -105,7 +113,7 @@ public class ReadFile {
 				String[] tags = POSTagger.getInstance().tag(tokens);
 
 				HashMap<String, List<Integer>> value1  = new HashMap<String, List<Integer>>();
-				
+
 				for(int i =0 ; i< tokens.length; i++){
 					String token = tokens[i];
 					String tag = tags[i];
@@ -118,7 +126,7 @@ public class ReadFile {
 
 					if(value == null)
 						value = new HashMap<String, HashMap<String,List<Integer>>>();
-					
+
 					value1 = value.get(token);
 					if(value1 == null){
 						value1 =  new HashMap<String, List<Integer>>();
@@ -140,7 +148,7 @@ public class ReadFile {
 				}
 			}
 
-			System.out.println(ReadFile.freqMap);
+//			System.out.println(ReadFile.freqMap);
 		}
 	}
 
@@ -213,9 +221,10 @@ public class ReadFile {
 	public static void main(String[] args){
 		long start = System.currentTimeMillis();
 		ReadFile.readLinesToList(new File(args[0]));
-		System.out.println((System.currentTimeMillis()-start));
-		//		String line = "200	false	false	false	4064	O	265959246791864320	stlouisbiz	Men, will you be watching election results alone? http://www.bizjournals.com/stlouis/blog/2012/11/men-will-you-be-watching-election.html?ana=twt … #Election2012	3:30 अपराह्न - 6 नवं, 2012 	1	 0	null";
-		//		parseData(line);
-		System.out.println(ReadFile.stemMap);
+//		String line = "200	false	false	false	4064	O	265959246791864320	stlouisbiz	Men, will you be watching election results alone? http://www.bizjournals.com/stlouis/blog/2012/11/men-will-you-be-watching-election.html?ana=twt … #Election2012	3:30 अपराह्न - 6 नवं, 2012 	1	 0	null";
+//		parseTime(line);
+//		parseData();
+//		System.out.println(ReadFile.stemMap);
+		System.out.println("Total time ::::"+(System.currentTimeMillis()-start));
 	}
 }
