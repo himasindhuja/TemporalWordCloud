@@ -1,27 +1,26 @@
 package org.iiit.ire;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateUtils;
 
 
 public class ReadFile {
-	public static HashMap<String, Long> tweetMap = new HashMap<String, Long>();
+	public static HashMap<Long, List<String>> tweetMap = new HashMap<Long, List<String>>();
 	public static HashMap<String, String> stemMap = new HashMap<String, String>();
+	public static String[] patterns = new String[]{"hh:mm aa - dd MMM, yyyy"};
 
 	//{time = {token = {tag = {freq, lda score}}}}
 	public static HashMap<Long, HashMap<String, HashMap<String,List<Integer>>>> freqMap = new HashMap<Long, HashMap<String,HashMap<String,List<Integer>>>>();
@@ -51,90 +50,98 @@ public class ReadFile {
 	 * @param file
 	 * @return
 	 */
-	public static BufferedReader getBufferedReader(File file) {
+	public static List<String> getBufferedReader(File file) {
 		Path path = Paths.get(file.getAbsolutePath());
 		try {
-			return Files.newBufferedReader(path, charset);
+			return Files.readAllLines(path, charset);
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
 		}
 	}
 
-	public static void parseData(String line){
+	public static void parseTime(String line){
 		line = line.replace("अपराह्न","PM");
 		line = line.replace("पूर्वाह्न","AM");
 		line = line.replace("नवं","Nov");
 		line = line.replace("अक्टू","Oct");
 		String[] splits = line.split("\t");
-		//		System.out.println(splits.length);
-
-		//		System.out.println(splits[9]);
 		splits[9] = splits[9].trim();
-		String[] patterns = new String[]{"hh:mm aa - dd MMM, yyyy"};
+
+		Date date = null;
 		try {
-			Tokenizer tokenizer = new Tokenizer(true, false, true, true, true, false, true);
-			System.out.println(splits[9]);
-			Date date = DateUtils.parseDateStrictly(splits[9], patterns);
-			String[] tokens = tokenizer.getNGrams(splits[8], 1, stemMap);
-			String[] tags = POSTagger.getInstance().tag(tokens);
-
-//			System.out.println(Arrays.asList(tokens)+"\n"+Arrays.asList(tags));
-			tweetMap.put(splits[8], date.getTime());
-
-			HashMap<String, List<Integer>> value1  = new HashMap<String, List<Integer>>();
-			for(int i =0 ; i< tokens.length; i++){
-				String token = tokens[i];
-				String tag = tags[i];
-				//				System.out.println("token : "+token+"\t tag: "+tag);
-				HashMap<String, HashMap<String,List<Integer>>> value = freqMap.get(date.getTime());
-
-				try{
-					value1 = freqMap.get(date.getTime()).get(token);
-				}catch(Exception e){
-					value1 = new HashMap<String, List<Integer>>();
-				}
-
-				//				System.out.println("value1 :"+ value1);
-				List<Integer>  value2 = null;
-				try{
-					value2 = value1.get(tag);
-				}catch(Exception e){
-					value2 = new ArrayList<Integer>();
-				}
-
-				//				System.out.println("value2 :"+value2);
-				if(value == null){
-					value = new HashMap<String, HashMap<String,List<Integer>>>();
-				}
-
-				try{
-					value2.add(value1.get(tag).get(0) + 1);
-					value2.add(value1.get(tag).get(1) + 1);// have to lda code here
-				}catch(Exception e){
-					value2 = new ArrayList<Integer>();
-					value2.add(1);
-					value2.add(1);
-				}
-
-				try{
-					value1.put(tag, value2);
-				}catch(Exception e){
-					value1 = new HashMap<String, List<Integer>>();
-					value1.put(tag, value2);
-				}
-
-				value.put(token, value1);
-//				System.out.println("value :"+value);
-				freqMap.put(date.getTime(), value);
-			}
-			//			System.out.println(date);
-			//			System.out.println(date.getTime());
-		} catch (ParseException e) {
-			e.printStackTrace();
+			date = DateUtils.parseDateStrictly(splits[9], patterns);
+		} catch (Exception e) {
+			return;
 		}
 
-		//		System.out.println(splits[8]+"\t"+splits[9]);
+		List<String> tweets = new ArrayList<String>();
+		try {
+			tweets = tweetMap.get(date.getTime());
+		} catch (Exception e) {
+			tweets = new ArrayList<String>();
+		}
+
+		try {
+			tweets.add(splits[8]);
+		} catch (Exception e) {
+			tweets = new ArrayList<String>();
+			tweets.add(splits[8]);
+		}
+
+		tweetMap.put(date.getTime(), tweets);
+	}
+
+	public static void parseData(){
+
+		for(Map.Entry<Long, List<String>> entries : tweetMap.entrySet()){
+			freqMap = new HashMap<Long, HashMap<String,HashMap<String,List<Integer>>>>();
+
+			long time = entries.getKey();
+			System.out.println("time : "+ time +"\t size :" + entries.getValue().size());
+			for(String tweet : entries.getValue()){
+				Tokenizer tokenizer = new Tokenizer(true, false, true, true, true, false, true);
+				String[] tokens = tokenizer.getNGrams(tweet, 1, stemMap);
+				String[] tags = POSTagger.getInstance().tag(tokens);
+
+				HashMap<String, List<Integer>> value1  = new HashMap<String, List<Integer>>();
+				
+				for(int i =0 ; i< tokens.length; i++){
+					String token = tokens[i];
+					String tag = tags[i];
+
+					//{time = {token = {tag = {freq, lda score}}}}
+					//				System.out.println("token : "+token+"\t tag: "+tag);
+					HashMap<String, HashMap<String,List<Integer>>> value = freqMap.get(time);
+					List<Integer>  value2 = new ArrayList<Integer>();
+
+
+					if(value == null)
+						value = new HashMap<String, HashMap<String,List<Integer>>>();
+					
+					value1 = value.get(token);
+					if(value1 == null){
+						value1 =  new HashMap<String, List<Integer>>();
+					}
+
+					try{
+						value2.add(value1.get(tag).get(0) + 1);
+						value2.add(value1.get(tag).get(1) + 1);// have to add lda code here
+					}catch(Exception e){
+						value2 = new ArrayList<Integer>();
+						value2.add(1);
+						value2.add(1);
+					}
+
+					value1.put(tag, value2);
+
+					value.put(token, value1);
+					freqMap.put(time, value);
+				}
+			}
+
+			System.out.println(ReadFile.freqMap);
+		}
 	}
 
 	/**
@@ -147,9 +154,9 @@ public class ReadFile {
 	public static Set<String> readLinesToSet(File file, 
 			boolean ignoreCase, boolean useId) {
 		Set<String> set = new HashSet<String>();
-
-		try {
-			BufferedReader br = getBufferedReader(file);
+		set.addAll(getBufferedReader(file));
+		/*try {
+			List<String> lines = getBufferedReader(file);
 			String line = null;
 
 			while((line = br.readLine()) != null) {
@@ -165,48 +172,50 @@ public class ReadFile {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
+		}*/
 
 		return set;
 	}
 
-	public static List<String> readLinesToList(File file, 
-			boolean ignoreCase) {
-		List<String> list = new ArrayList<String>();
+	public static void readLinesToList(File file) {
 
-		try {
+		List<String> lines = new ArrayList<String>();
+		long start = System.currentTimeMillis();
+		lines.addAll(getBufferedReader(file));
+		/*try {
 			BufferedReader br = getBufferedReader(file);
 			String line = null;
 
-			while((line = br.readLine()) != null) {
-				if(ignoreCase) {
-					line = line.toLowerCase();
-					//					System.out.println(line);
-					line = line.replace("अपराह्न","PM");
-					line = line.replace("नवं","Nov");
-				}
-
-				if(StringUtils.isNotBlank(line))
-					list.add(line);
-
-				parseData(line);
+			while((line = br.readLine().toLowerCase()) != null) {
+				line = line.toLowerCase();
+				lines.add(line);
+//				parseData(line);
 			}
 
 			br.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}*/
+
+		System.out.println("Time for reading the file "+(System.currentTimeMillis() - start));
+
+
+		start = System.currentTimeMillis();
+		for(String line : lines){
+			parseTime(line);
 		}
 
-		return list;
+		System.out.println("Time for parsing a line "+(System.currentTimeMillis() - start));
+		parseData();
 	}
 
-
 	public static void main(String[] args){
-		ReadFile.readLinesToList(new File(args[0]), true);
+		long start = System.currentTimeMillis();
+		ReadFile.readLinesToList(new File(args[0]));
+		System.out.println((System.currentTimeMillis()-start));
 		//		String line = "200	false	false	false	4064	O	265959246791864320	stlouisbiz	Men, will you be watching election results alone? http://www.bizjournals.com/stlouis/blog/2012/11/men-will-you-be-watching-election.html?ana=twt … #Election2012	3:30 अपराह्न - 6 नवं, 2012 	1	 0	null";
 		//		parseData(line);
 		System.out.println(ReadFile.stemMap);
-		System.out.println(ReadFile.freqMap);
 	}
 }
