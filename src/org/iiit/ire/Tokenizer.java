@@ -54,6 +54,7 @@ public class Tokenizer {
 	private List<String> atTags = new ArrayList<String>();
 	private List<String> urls = new ArrayList<String>();
 
+	static Stemmer stemmer = new Stemmer();
 	/**
 	 * Default tokenizer constructor
 	 */
@@ -183,24 +184,23 @@ public class Tokenizer {
 							isStopWord(token))
 						continue;
 				}
-				
-				Stemmer stemmer = new Stemmer();
-				int j =0;
-				for(int i = 0; i<token.length();i++){
-					if(Character.isLetter(token.charAt(i))){
-						stemmer.add(token.charAt(i));
-						j++;
-					}
-				}
-
-				if(token.length() == j){
-					stemmer.stem();
-					stemMap.put(token , stemmer.toString());
-					token = stemmer.toString();
-//					System.out.println("stem token "+ token);
-				}
-				tokens.add(token);
 			}
+			
+			int j =0;
+			for(int i = 0; i<token.length();i++){
+				if(Character.isLetter(token.charAt(i))){
+					stemmer.add(token.charAt(i));
+					j++;
+				}
+			}
+
+			if(token.length() == j){
+				stemmer.stem();
+				stemMap.put(token , stemmer.toString());
+				token = stemmer.toString();
+//				System.out.println("stem token "+ token);
+			}
+			tokens.add(token);
 		}
 
 		return tokens.toArray(new String[0]);

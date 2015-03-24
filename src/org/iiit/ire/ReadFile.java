@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateUtils;
 
 
@@ -22,7 +23,12 @@ public class ReadFile {
 	public static HashMap<Integer, List<String>> tweetMap = new HashMap<Integer, List<String>>();
 	public static HashMap<String, String> stemMap = new HashMap<String, String>();
 	public static String[] patterns = new String[]{"hh:mm aa - dd MMM, yyyy"};
-
+	static Tokenizer tokenizer = null;
+	
+	static{
+		tokenizer = new Tokenizer(true, false, true, true, true, false, true);
+	}
+	
 	//{time = {token = {tag = {freq, lda score}}}}
 	public static HashMap<Integer, HashMap<String, HashMap<String,List<Integer>>>> freqMap = new HashMap<Integer, HashMap<String,HashMap<String,List<Integer>>>>();
 	public static final Charset charset = Charset.forName("UTF-8");
@@ -53,7 +59,9 @@ public class ReadFile {
 	 */
 	public static List<String> getBufferedReader(File file) {
 		Path path = Paths.get(file.getAbsolutePath());
+		System.out.println("file is :::"+file.getAbsolutePath());
 		try {
+			System.out.println(Files.isReadable(file.toPath()));
 			return Files.readAllLines(path, charset);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -76,39 +84,37 @@ public class ReadFile {
 			return;
 		}
 		
+		if(date == null || StringUtils.isBlank(splits[8]))
+			return;
+		
 		final Calendar dateCal = Calendar.getInstance();
 		dateCal.setTimeInMillis(date.getTime());
 		
 		int hour = dateCal.get(Calendar.HOUR);	
 		
 		List<String> tweets = new ArrayList<String>();
-		try {
+		if(tweetMap.containsKey(hour)){
 			tweets = tweetMap.get(hour);
-		} catch (Exception e) {
+		}else{
 			tweets = new ArrayList<String>();
 		}
 
-		try {
-			tweets.add(splits[8]);
-		} catch (Exception e) {
-			tweets = new ArrayList<String>();
-			tweets.add(splits[8]);
-		}
-		  
+		tweets.add(splits[8]);
+//		System.out.println(splits[6]+"\tX\t"+splits[8]);  
 //		System.out.println("hour "+ hour);
-		
 		tweetMap.put(hour, tweets);
 	}
 
 	public static void parseData(){
 
 		for(Map.Entry<Integer, List<String>> entries : tweetMap.entrySet()){
+			stemMap = new HashMap<String, String>();
 			freqMap = new HashMap<Integer, HashMap<String,HashMap<String,List<Integer>>>>();
 
 			int time = entries.getKey();
 			System.out.println("time : "+ time +"\t size :" + entries.getValue().size());
+			long start = System.currentTimeMillis();
 			for(String tweet : entries.getValue()){
-				Tokenizer tokenizer = new Tokenizer(true, false, true, true, true, false, true);
 				String[] tokens = tokenizer.getNGrams(tweet, 1, stemMap);
 				String[] tags = POSTagger.getInstance().tag(tokens);
 
@@ -147,7 +153,7 @@ public class ReadFile {
 					freqMap.put(time, value);
 				}
 			}
-
+			System.out.println("Time  ::: "+ (System.currentTimeMillis()- start));
 //			System.out.println(ReadFile.freqMap);
 		}
 	}
@@ -215,16 +221,20 @@ public class ReadFile {
 		}
 
 		System.out.println("Time for parsing a line "+(System.currentTimeMillis() - start));
+		start = System.currentTimeMillis();
 		parseData();
+		System.out.println("Total time :: "+(System.currentTimeMillis() - start));
 	}
 
 	public static void main(String[] args){
 		long start = System.currentTimeMillis();
+		StopWordsLoader.getLoader();
 		ReadFile.readLinesToList(new File(args[0]));
+		
 //		String line = "200	false	false	false	4064	O	265959246791864320	stlouisbiz	Men, will you be watching election results alone? http://www.bizjournals.com/stlouis/blog/2012/11/men-will-you-be-watching-election.html?ana=twt … #Election2012	3:30 अपराह्न - 6 नवं, 2012 	1	 0	null";
 //		parseTime(line);
 //		parseData();
 //		System.out.println(ReadFile.stemMap);
-		System.out.println("Total time ::::"+(System.currentTimeMillis()-start));
+		System.out.println("Total final time ::::"+(System.currentTimeMillis()-start));
 	}
 }
